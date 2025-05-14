@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chamas AI</title>
+  <title>Interactive Video Start</title>
   <style>
     html, body {
       margin: 0;
@@ -12,6 +12,7 @@
       width: 100%;
       background: black;
       overflow: hidden;
+      cursor: pointer;
     }
     video {
       position: absolute;
@@ -21,14 +22,45 @@
       min-height: 100%;
       transform: translate(-50%, -50%);
       object-fit: cover;
-      pointer-events: none;
+      pointer-events: none; /* block right-click/pause etc */
+    }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%; width: 100%;
+      background: black;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2em;
+      z-index: 2;
     }
   </style>
 </head>
 <body>
-  <video autoplay muted loop playsinline>
-    <source src="video.mp4" type="video/mp4" />
+
+  <div id="overlay">Click anywhere to begin</div>
+
+  <video id="bg-video" loop playsinline>
+    <source src="your-video.mp4" type="video/mp4" />
     Your browser does not support the video tag.
   </video>
+
+  <script>
+    const overlay = document.getElementById('overlay');
+    const video = document.getElementById('bg-video');
+
+    const startVideo = () => {
+      video.play().then(() => {
+        overlay.style.display = 'none';
+      }).catch((err) => {
+        console.error('Video play failed:', err);
+      });
+      document.removeEventListener('click', startVideo);
+    };
+
+    document.addEventListener('click', startVideo);
+  </script>
 </body>
 </html>
