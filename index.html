@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Interactive Video Start</title>
+  <title>Click to Start Video</title>
   <style>
     html, body {
       margin: 0;
@@ -22,19 +22,20 @@
       min-height: 100%;
       transform: translate(-50%, -50%);
       object-fit: cover;
-      pointer-events: none; /* block right-click/pause etc */
+      pointer-events: none; /* Block right-click etc */
     }
     #overlay {
       position: absolute;
       top: 0; left: 0;
-      height: 100%; width: 100%;
-      background: black;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 2em;
-      z-index: 2;
+      z-index: 10;
+      transition: opacity 0.5s ease;
     }
   </style>
 </head>
@@ -51,16 +52,19 @@
     const overlay = document.getElementById('overlay');
     const video = document.getElementById('bg-video');
 
-    const startVideo = () => {
-      video.play().then(() => {
-        overlay.style.display = 'none';
-      }).catch((err) => {
-        console.error('Video play failed:', err);
-      });
-      document.removeEventListener('click', startVideo);
+    const startVideo = async () => {
+      try {
+        await video.play();
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 500); // remove after fade
+      } catch (err) {
+        console.error('Playback failed:', err);
+        overlay.innerText = "Click again to start video (autoplay blocked)";
+      }
     };
 
-    document.addEventListener('click', startVideo);
+    // Safari fix: enable user interaction
+    document.body.addEventListener('click', startVideo, { once: true });
   </script>
 </body>
 </html>
