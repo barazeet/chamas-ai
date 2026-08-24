@@ -1,7 +1,9 @@
 import { createScene } from './scene/createScene';
+import { buildOffice } from './scene/office';
 
 const container = document.getElementById('app')!;
 const { renderer, scene, camera } = createScene(container);
+scene.add(buildOffice());
 
 const gate = document.getElementById('gate')!;
 gate.addEventListener('click', () => gate.classList.add('hidden'), { once: true });
