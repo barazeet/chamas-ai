@@ -15,11 +15,37 @@
       cursor: pointer; user-select: none;
     }
     #gate.hidden { display: none; }
+    #chat {
+      position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+      width: min(560px, 92vw); z-index: 5; display: flex; flex-direction: column; gap: 8px;
+    }
+    #messages {
+      max-height: 30vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+      font-size: 13px; color: #cfd8e3;
+    }
+    #messages .msg { padding: 6px 10px; border-radius: 8px; background: rgba(20,26,36,0.85); }
+    #messages .msg.user { align-self: flex-end; color: #7ee787; }
+    #chat-form { display: flex; gap: 8px; }
+    #chat-input {
+      flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a2e38;
+      background: rgba(20,26,36,0.9); color: #e6edf3; font-family: monospace; outline: none;
+    }
+    #chat-form button {
+      padding: 10px 16px; border-radius: 8px; border: 1px solid #2a2e38;
+      background: #16202e; color: #7ee787; font-family: monospace; cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div id="app"></div>
   <div id="gate">this experience works best with sound — tap to enter</div>
+  <div id="chat">
+    <div id="messages"></div>
+    <form id="chat-form">
+      <input id="chat-input" type="text" maxlength="500" placeholder="ask me anything…" autocomplete="off">
+      <button type="submit">send</button>
+    </form>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
