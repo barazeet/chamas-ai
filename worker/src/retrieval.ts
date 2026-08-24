@@ -9,11 +9,12 @@ export interface KnowledgeEntry {
 
 export function toFtsQuery(raw: string): string {
   const terms = raw
+    .replace(/\p{M}/gu, '')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 2)
+    .filter((w) => w.length > 1)
     .slice(0, 8);
-  return terms.map((t) => `"${t.replace(/"/g, '""')}"`).join(' OR ');
+  return terms.map((t) => `"${t}"`).join(' OR ');
 }
 
 export async function searchKnowledge(
