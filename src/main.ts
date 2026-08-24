@@ -58,6 +58,7 @@ const ui = new ChatUI({
       const el = ui.addMessage('assistant', '');
       await ui.typewriter(el, reply.reply);
       history.push({ role: 'assistant', content: reply.reply });
+      history.splice(0, history.length - 8);
       sm.transition('idle');
     } catch {
       ui.addMessage('assistant', "hmm, my brain hiccuped — try again in a sec.");
@@ -65,6 +66,7 @@ const ui = new ChatUI({
     }
   },
 });
+sm.onChange((state) => ui.setEnabled(state === 'idle'));
 
 const clock = { last: performance.now() };
 function loop(now: number) {

@@ -5,9 +5,11 @@ export interface ChatUIHandlers {
 export class ChatUI {
   private messages = document.getElementById('messages')!;
   private input = document.getElementById('chat-input') as HTMLInputElement;
+  private button: HTMLButtonElement;
 
   constructor(handlers: ChatUIHandlers) {
     const form = document.getElementById('chat-form') as HTMLFormElement;
+    this.button = form.querySelector('button[type="submit"]')!;
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = this.input.value.trim();
@@ -17,11 +19,19 @@ export class ChatUI {
     });
   }
 
+  setEnabled(enabled: boolean): void {
+    this.input.disabled = !enabled;
+    this.button.disabled = !enabled;
+  }
+
   addMessage(role: 'user' | 'assistant', text: string): HTMLElement {
     const el = document.createElement('div');
     el.className = `msg ${role}`;
     el.textContent = text;
     this.messages.appendChild(el);
+    while (this.messages.children.length > 100) {
+      this.messages.firstElementChild!.remove();
+    }
     this.messages.scrollTop = this.messages.scrollHeight;
     return el;
   }
