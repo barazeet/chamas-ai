@@ -10,12 +10,15 @@ const CAGE = new THREE.MeshStandardMaterial({ color: 0x555c66, wireframe: true }
 const LED = new THREE.MeshStandardMaterial({
   color: 0x001133, emissive: 0x2266ff, emissiveIntensity: 2.0,
 });
+// Template for screen materials — always .clone() it, never mutate in place:
+// each screen needs its own instance so textures can be attached per-screen.
 const SCREEN_OFF = new THREE.MeshStandardMaterial({
   color: 0x0a0c10, emissive: 0x16202e, emissiveIntensity: 0.6,
 });
 const WINDOW_GLOW = new THREE.MeshStandardMaterial({
   color: 0x30363f, emissive: 0xbfd4e6, emissiveIntensity: 0.9,
 });
+const FLOOR = new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: 1 });
 
 function box(
   name: string,
@@ -32,7 +35,7 @@ function box(
 function buildMonitor(name: string, x: number, angle: number): THREE.Group {
   const group = new THREE.Group();
   group.name = name;
-  group.add(box('screen', 0.62, 0.36, 0.03, 0, 0.28, 0, SCREEN_OFF));
+  group.add(box('screen', 0.62, 0.36, 0.03, 0, 0.28, 0, SCREEN_OFF.clone()));
   group.add(box('arm-mount', 0.08, 0.08, 0.06, 0, 0.22, 0.04, DARK));
   group.position.set(x, 0.86, -0.3);
   group.rotation.y = angle;
@@ -45,9 +48,9 @@ export function buildOffice(): THREE.Group {
 
   // White standing desk with T-legs
   office.add(box('desk', 1.9, 0.04, 0.8, 0, 0.76, -0.05, WHITE_DESK));
-  for (const side of [-1, 1]) {
-    office.add(box(`desk-column-${side}`, 0.08, 0.72, 0.08, side * 0.8, 0.38, -0.05, WHITE_DESK));
-    office.add(box(`desk-foot-${side}`, 0.08, 0.03, 0.6, side * 0.8, 0.015, -0.05, WHITE_DESK));
+  for (const [side, label] of [[-1, 'left'], [1, 'right']] as const) {
+    office.add(box(`desk-column-${label}`, 0.08, 0.72, 0.08, side * 0.8, 0.38, -0.05, WHITE_DESK));
+    office.add(box(`desk-foot-${label}`, 0.08, 0.03, 0.6, side * 0.8, 0.015, -0.05, WHITE_DESK));
   }
 
   // Dark desk mat covering most of the surface
@@ -86,7 +89,7 @@ export function buildOffice(): THREE.Group {
   laptop.name = 'laptop';
   laptop.add(box('laptop-stand', 0.26, 0.12, 0.2, 0, 0.06, 0, DARK));
   laptop.add(box('laptop-base', 0.33, 0.015, 0.23, 0, 0.13, 0, PLASTIC));
-  laptop.add(box('laptop-lid', 0.33, 0.22, 0.012, 0, 0.23, -0.11, SCREEN_OFF));
+  laptop.add(box('laptop-lid', 0.33, 0.22, 0.012, 0, 0.23, -0.11, SCREEN_OFF.clone()));
   laptop.position.set(0.72, 0.785, 0.02);
   laptop.rotation.y = -0.45;
   office.add(laptop);
@@ -118,10 +121,7 @@ export function buildOffice(): THREE.Group {
   windowPane.name = 'window';
   office.add(windowPane);
 
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(6, 48),
-    new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: 1 }),
-  );
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), FLOOR);
   floor.rotation.x = -Math.PI / 2;
   floor.name = 'floor';
   office.add(floor);
