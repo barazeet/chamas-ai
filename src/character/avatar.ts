@@ -30,20 +30,17 @@ export async function loadAvatar(url: string): Promise<AvatarHandle> {
   try {
     const gltf = await loader.loadAsync(url);
     const morphMeshes: THREE.Mesh[] = [];
+    const morphMeshByName = new Map<string, THREE.Mesh>();
     gltf.scene.traverse((child) => {
       const mesh = child as THREE.Mesh;
       if (mesh.isMesh && (mesh.morphTargetInfluences?.length ?? 0) > 0) {
         morphMeshes.push(mesh);
+        morphMeshByName.set(mesh.name, mesh);
       }
     });
-    return {
-      object: gltf.scene,
-      morphMesh: morphMeshes[0] ?? null,
-      morphMeshes,
-      isPlaceholder: false,
-    };
-  } catch {
-    console.warn(`[avatar] failed to load ${url}, using placeholder`);
-    return { object: buildPlaceholder(), morphMesh: null, isPlaceholder: true };
+    return { object: gltf.scene, morphMeshes, morphMeshByName, isPlaceholder: false };
+  } catch (e) {
+    console.warn(`[avatar] failed to load ${url}, using placeholder`, e);
+    return { object: buildPlaceholder(), morphMeshes: [], morphMeshByName: new Map(), isPlaceholder: true };
   }
 }
