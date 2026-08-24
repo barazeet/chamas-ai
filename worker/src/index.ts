@@ -24,6 +24,10 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   const { success } = await env.CHAT_RATE_LIMIT.limit({ key });
   if (!success) return json({ error: 'rate_limited' }, 429);
 
+  if (Number(request.headers.get('Content-Length')) > 32_768) {
+    return json({ error: 'too_large' }, 413);
+  }
+
   const body = (await request.json().catch(() => null)) as {
     message?: unknown;
     history?: unknown;
@@ -31,7 +35,15 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   const message = typeof body?.message === 'string' ? body.message.slice(0, 500).trim() : '';
   if (!message) return json({ error: 'empty_message' }, 400);
   const history: ChatMessage[] = Array.isArray(body?.history)
-    ? (body!.history as ChatMessage[]).slice(-8)
+    ? (body!.history as unknown[])
+        .filter(
+          (m): m is ChatMessage =>
+            typeof m === 'object' && m !== null &&
+            ((m as ChatMessage).role === 'user' || (m as ChatMessage).role === 'assistant') &&
+            typeof (m as ChatMessage).content === 'string',
+        )
+        .slice(-8)
+        .map((m) => ({ role: m.role, content: m.content.slice(0, 500) }))
     : [];
 
   const entries = await searchKnowledge(env.DB, message);
