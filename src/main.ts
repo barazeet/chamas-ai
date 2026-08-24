@@ -60,8 +60,18 @@ const ui = new ChatUI({
       history.push({ role: 'assistant', content: reply.reply });
       history.splice(0, history.length - 8);
       sm.transition('idle');
-    } catch {
-      ui.addMessage('assistant', "hmm, my brain hiccuped — try again in a sec.");
+    } catch (err) {
+      // Roll back the user message pushed above. The sm.current guard
+      // serializes submissions, so the failed message is always the tail;
+      // leaving it would end history with two consecutive user turns and
+      // Gemini rejects that, bricking every subsequent request.
+      history.pop();
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('429')) {
+        ui.addMessage('assistant', 'whoa, slow down a sec — too many messages at once.');
+      } else {
+        ui.addMessage('assistant', "hmm, my brain hiccuped — try again in a sec.");
+      }
       sm.transition('idle');
     }
   },
