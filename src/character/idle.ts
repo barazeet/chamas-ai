@@ -14,14 +14,8 @@ export class IdleAnimator {
   private t = 0;
   private nextBlinkAt = BLINK_INTERVAL;
   private blinkTargets: { mesh: THREE.Mesh; index: number }[] = [];
-  private baseScaleY: number;
-  private baseRotationY: number;
-  private basePositionY: number;
 
   constructor(private target: IdleTarget) {
-    this.baseScaleY = target.object.scale.y;
-    this.baseRotationY = target.object.rotation.y;
-    this.basePositionY = target.object.position.y;
     for (const mesh of target.morphMeshes) {
       const dict = mesh.morphTargetDictionary ?? {};
       for (const name of BLINK_NAMES) {
@@ -32,10 +26,8 @@ export class IdleAnimator {
 
   update(dt: number): void {
     this.t += dt;
-    const o = this.target.object;
-    o.scale.y = this.baseScaleY * (1 + Math.sin(this.t * 1.6) * 0.008);
-    o.rotation.y = this.baseRotationY + Math.sin(this.t * 0.35) * 0.03;
-    o.position.y = this.basePositionY + Math.sin(this.t * 1.6) * 0.004;
+    // The character stays fully planted — blinking is the only idle motion
+    // (owner feedback: bobbing/sway/breathing all looked wrong).
 
     if (this.blinkTargets.length === 0) return;
     const sinceBlinkStart = this.t - this.nextBlinkAt;

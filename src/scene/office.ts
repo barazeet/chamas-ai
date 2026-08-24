@@ -35,8 +35,10 @@ function box(
 function buildMonitor(name: string, x: number, angle: number): THREE.Group {
   const group = new THREE.Group();
   group.name = name;
-  group.add(box('screen', 0.62, 0.36, 0.03, 0, 0.28, 0, SCREEN_OFF.clone()));
-  group.add(box('arm-mount', 0.08, 0.08, 0.06, 0, 0.22, -0.05, DARK));
+  // bezel: dark frame slightly larger than the screen, sitting behind it
+  group.add(box('bezel', 0.66, 0.4, 0.025, 0, 0.28, -0.012, DARK));
+  group.add(box('screen', 0.62, 0.36, 0.03, 0, 0.28, 0.004, SCREEN_OFF.clone()));
+  group.add(box('arm-mount', 0.08, 0.08, 0.06, 0, 0.22, -0.06, DARK));
   group.position.set(x, 0.86, -0.3);
   group.rotation.y = angle;
   return group;
@@ -46,8 +48,9 @@ export function buildOffice(): THREE.Group {
   const office = new THREE.Group();
   office.name = 'office';
 
-  // White standing desk with T-legs
+  // White standing desk with T-legs + height control panel under the right edge
   office.add(box('desk', 1.9, 0.04, 0.8, 0, 0.76, -0.05, WHITE_DESK));
+  office.add(box('desk-controls', 0.14, 0.02, 0.06, 0.68, 0.735, 0.3, DARK));
   for (const [side, label] of [[-1, 'left'], [1, 'right']] as const) {
     office.add(box(`desk-column-${label}`, 0.08, 0.72, 0.08, side * 0.8, 0.38, -0.05, WHITE_DESK));
     office.add(box(`desk-foot-${label}`, 0.08, 0.03, 0.6, side * 0.8, 0.015, -0.05, WHITE_DESK));
@@ -70,18 +73,34 @@ export function buildOffice(): THREE.Group {
   // Webcam perched on the right monitor
   office.add(box('webcam', 0.09, 0.035, 0.035, 0.36, 1.245, -0.3, DARK));
 
-  // Red mic (cylinder) front-center on the mat
+  // Red mic (HyperX-style cylinder on a round shock-mount base)
   const mic = new THREE.Group();
   mic.name = 'mic';
-  const micBody = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 16), RED_MIC);
-  micBody.position.y = 0.1;
+  const micBody = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.15, 16), RED_MIC);
+  micBody.position.y = 0.115;
   mic.add(micBody);
-  mic.add(box('mic-base', 0.09, 0.02, 0.09, 0, 0.01, 0, DARK));
+  const micBase = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.015, 24), DARK);
+  micBase.position.y = 0.008;
+  mic.add(micBase);
+  const micRing = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.006, 8, 24), DARK);
+  micRing.rotation.x = Math.PI / 2;
+  micRing.position.y = 0.05;
+  mic.add(micRing);
   mic.position.set(-0.05, 0.785, 0.0);
   office.add(mic);
 
-  office.add(box('keyboard', 0.4, 0.02, 0.14, -0.05, 0.795, 0.16, PLASTIC));
-  office.add(box('mouse', 0.06, 0.025, 0.1, 0.28, 0.8, 0.18, PLASTIC));
+  // Low-profile keyboard with a slight typing tilt
+  const keyboard = box('keyboard', 0.4, 0.015, 0.14, -0.05, 0.795, 0.16, PLASTIC);
+  keyboard.rotation.x = -0.06;
+  office.add(keyboard);
+
+  // Rounded mouse (squashed sphere, not a box)
+  const mouse = new THREE.Mesh(new THREE.SphereGeometry(0.045, 20, 12), PLASTIC);
+  mouse.scale.set(0.7, 0.35, 1.1);
+  mouse.position.set(0.28, 0.795, 0.18);
+  mouse.name = 'mouse';
+  office.add(mouse);
+
   office.add(box('controller', 0.14, 0.05, 0.1, -0.58, 0.81, 0.08, PLASTIC));
 
   // Laptop on an elevated stand, to the right
@@ -94,11 +113,17 @@ export function buildOffice(): THREE.Group {
   laptop.rotation.y = -0.45;
   office.add(laptop);
 
-  // Tower inside a wire-mesh cage on the floor, left of the desk, blue LED glow
+  // Tower inside a wire-mesh cage on the floor, left of the desk.
+  // Real thing: black case with blue LED fans glowing through the mesh.
   const towerGroup = new THREE.Group();
   towerGroup.name = 'tower';
   towerGroup.add(box('tower-body', 0.24, 0.5, 0.5, 0, 0.25, 0, PLASTIC));
-  towerGroup.add(box('tower-led', 0.2, 0.03, 0.02, 0, 0.42, 0.26, LED));
+  for (const fanY of [0.14, 0.3, 0.44]) {
+    const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.015, 24), LED);
+    fan.rotation.x = Math.PI / 2;
+    fan.position.set(0, fanY, 0.252);
+    towerGroup.add(fan);
+  }
   towerGroup.position.set(-1.2, 0.06, 0.1);
   office.add(towerGroup);
   office.add(box('cage', 0.44, 0.62, 0.68, -1.2, 0.34, 0.1, CAGE));

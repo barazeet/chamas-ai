@@ -6,11 +6,11 @@ import * as THREE from 'three';
 // scene (foot lands at floor level, hands rest at lap height).
 const SEAT_ROTATIONS: Record<string, [number, number, number]> = {
   // thighs forward (horizontal)
-  LeftUpLeg: [1.35, 0, 0.08],
-  RightUpLeg: [1.35, 0, -0.08],
+  LeftUpLeg: [1.45, 0, 0.08],
+  RightUpLeg: [1.45, 0, -0.08],
   // knees bent, shins down to the floor
-  LeftLeg: [1.3, 0, 0],
-  RightLeg: [1.3, 0, 0],
+  LeftLeg: [1.45, 0, 0],
+  RightLeg: [1.45, 0, 0],
   // arms hanging down from T-pose
   LeftArm: [1.2, 0, 0],
   RightArm: [1.2, 0, 0],

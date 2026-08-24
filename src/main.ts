@@ -53,7 +53,7 @@ loadAvatar('/models/avatar.glb').then((avatar) => {
   applySeatedPose(avatar.object);
   // Seated: hips at chair-seat height. Avaturn's forward is +z, which is
   // toward the camera/visitor — no yaw needed.
-  avatar.object.position.set(0, -0.5, 0.5);
+  avatar.object.position.set(0, -0.4, 0.5);
   scene.add(avatar.object);
   idle = new IdleAnimator(avatar);
   (window as unknown as { __avatar: unknown }).__avatar = avatar;

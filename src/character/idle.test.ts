@@ -24,15 +24,18 @@ function makeTarget(): IdleTarget & { mesh: THREE.Mesh } {
 }
 
 describe('IdleAnimator', () => {
-  it('breathes (scale oscillates around 1)', () => {
+  it('stays fully planted — no position, rotation or scale motion', () => {
     const target = makeTarget();
+    target.object.position.y = 0.48;
+    target.object.scale.y = 2;
+    target.object.rotation.y = 0.7;
     const idle = new IdleAnimator(target);
-    idle.update(0.5);
-    const a = target.object.scale.y;
-    idle.update(0.5);
-    const b = target.object.scale.y;
-    expect(a).not.toBe(1);
-    expect(b).not.toBe(a);
+
+    for (let i = 0; i < 600; i++) idle.update(1 / 60);
+
+    expect(target.object.position.y).toBe(0.48);
+    expect(target.object.scale.y).toBe(2);
+    expect(target.object.rotation.y).toBe(0.7);
   });
 
   it('blinks periodically then reopens eyes', () => {
@@ -82,36 +85,5 @@ describe('IdleAnimator', () => {
     }
     expect(sawBlinkA).toBe(true);
     expect(sawBlinkB).toBe(true);
-  });
-
-  it('oscillates around the base pose, not the origin', () => {
-    const target = makeTarget();
-    target.object.position.y = 0.48;
-    target.object.scale.y = 2;
-    const idle = new IdleAnimator(target);
-
-    let minY = Infinity;
-    let maxY = -Infinity;
-    let minScale = Infinity;
-    let maxScale = -Infinity;
-    for (let i = 0; i < 600; i++) {
-      idle.update(1 / 60);
-      minY = Math.min(minY, target.object.position.y);
-      maxY = Math.max(maxY, target.object.position.y);
-      minScale = Math.min(minScale, target.object.scale.y);
-      maxScale = Math.max(maxScale, target.object.scale.y);
-    }
-
-    // Position oscillates around the 0.48 base
-    expect(minY).toBeGreaterThan(0.48 - 0.05);
-    expect(maxY).toBeLessThan(0.48 + 0.05);
-    expect(minY).toBeLessThan(0.48);
-    expect(maxY).toBeGreaterThan(0.48);
-
-    // Scale oscillates around the non-1 base (2), ±0.8%
-    expect(minScale).toBeGreaterThan(2 * (1 - 0.008) - 1e-6);
-    expect(maxScale).toBeLessThan(2 * (1 + 0.008) + 1e-6);
-    expect(minScale).toBeLessThan(2);
-    expect(maxScale).toBeGreaterThan(2);
   });
 });
