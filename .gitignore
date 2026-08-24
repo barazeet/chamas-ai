@@ -1,0 +1,6 @@
+node_modules/
+dist/
+docs/superpowers/
+references/
+model.glb
+.dev.vars
