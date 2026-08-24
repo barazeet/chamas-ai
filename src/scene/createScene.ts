@@ -18,8 +18,9 @@ export function createScene(container: HTMLElement): SceneContext {
   scene.fog = new THREE.Fog(0xe9e6e1, 8, 20);
 
   const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 50);
-  camera.position.set(0, 1.35, 3.3);
-  camera.lookAt(0, 1.05, 0);
+  // Slight left angle (like the reference photos), not dead-center
+  camera.position.set(-0.55, 1.35, 3.2);
+  camera.lookAt(0, 1.0, 0.4);
 
   const ambient = new THREE.AmbientLight(0xdde4ee, 1.1);
   const key = new THREE.DirectionalLight(0xfff2e0, 1.4);

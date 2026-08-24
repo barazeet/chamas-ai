@@ -17,7 +17,7 @@ gate.addEventListener('click', () => gate.classList.add('hidden'), { once: true 
 
 // Subtle mouse parallax: the camera drifts a few centimeters toward the
 // cursor so the scene feels alive. Base pose matches createScene.
-const CAMERA_BASE = { x: 0, y: 1.35, z: 3.3 };
+const CAMERA_BASE = { x: -0.55, y: 1.35, z: 3.2 };
 const mouse = { x: 0, y: 0 };
 window.addEventListener('mousemove', (e) => {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -101,7 +101,7 @@ function loop(now: number) {
   camera.position.x += (CAMERA_BASE.x + mouse.x * 0.12 - camera.position.x) * ease;
   camera.position.y += (CAMERA_BASE.y - mouse.y * 0.06 - camera.position.y) * ease;
   camera.position.z += (CAMERA_BASE.z - camera.position.z) * ease;
-  camera.lookAt(0, 1.05, 0);
+  camera.lookAt(0, 1.0, 0.4);
   for (const d of displays) d.update(dt);
   idle?.update(dt);
   renderer.render(scene, camera);

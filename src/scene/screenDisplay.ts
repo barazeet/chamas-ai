@@ -2,15 +2,16 @@ import * as THREE from 'three';
 
 export type ScreenMode = 'agents' | 'board';
 
-// Palette: light "product tool" UI (Linear/Notion vibes), not a terminal.
-const BG = '#f6f4f1';
-const PANEL = '#ffffff';
-const BORDER = '#e3dfd9';
-const TEXT = '#3a3f4a';
-const MUTED = '#9aa0ab';
-const GREEN = '#1a9e50';
-const ACCENT = '#4a6fdd';
-const AMBER = '#d97b2b';
+// Palette: dark "product tool" UI (Linear dark mode), matching the real
+// monitors in the reference photos which run dark themes.
+const BG = '#14161b';
+const PANEL = '#1d2026';
+const BORDER = '#2c3038';
+const TEXT = '#d7dae0';
+const MUTED = '#6b7280';
+const GREEN = '#34c759';
+const ACCENT = '#5b8def';
+const AMBER = '#e0a34a';
 
 interface AgentTask {
   title: string;
