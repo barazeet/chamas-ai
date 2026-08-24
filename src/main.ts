@@ -5,19 +5,21 @@ import { ScreenDisplay } from './scene/screenDisplay';
 
 const container = document.getElementById('app')!;
 const { renderer, scene, camera } = createScene(container);
-scene.add(buildOffice());
+const office = buildOffice();
+scene.add(office);
 
-const office = scene.getObjectByName('office')!;
 const displays: ScreenDisplay[] = [];
-for (const monitorName of ['monitor-left', 'monitor-right']) {
-  const display = new ScreenDisplay();
+for (const [i, monitorName] of ['monitor-left', 'monitor-right'].entries()) {
+  const display = new ScreenDisplay(512, 288, i * 5 * 18);
   const screen = office.getObjectByName(monitorName)!.getObjectByName('screen') as THREE.Mesh;
+  const oldMaterial = screen.material as THREE.Material;
   screen.material = new THREE.MeshStandardMaterial({
     color: 0x000000,
     emissive: 0xffffff,
     emissiveMap: display.texture,
     emissiveIntensity: 1.2,
   });
+  oldMaterial.dispose();
   displays.push(display);
 }
 
