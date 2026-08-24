@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.wrangler/
+coverage/
 docs/superpowers/
 references/
 model.glb
