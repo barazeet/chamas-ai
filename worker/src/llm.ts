@@ -24,7 +24,7 @@ export function parseLLMReply(raw: string): LLMReply {
   try {
     const obj = JSON.parse(raw) as Record<string, unknown>;
     return {
-      reply: String(obj.reply ?? '').slice(0, 1200),
+      reply: typeof obj.reply === 'string' ? obj.reply.slice(0, 1200) : '',
       emotion: EMOTIONS.includes(obj.emotion as Emotion) ? (obj.emotion as Emotion) : 'neutral',
       offTopic: obj.off_topic === true,
     };
@@ -45,6 +45,8 @@ export class GeminiProvider {
   ) {}
 
   async generate({ system, context, history, message }: GenerateInput): Promise<LLMReply> {
+    // Assumes history strictly alternates user/assistant (maintained client-side);
+    // Gemini rejects consecutive same-role turns.
     const contents = [
       ...history.map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
@@ -60,14 +62,21 @@ export class GeminiProvider {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents,
-          generationConfig: { response_mime_type: 'application/json', max_output_tokens: 300 },
+          // Budget sized for non-thinking gemini-2.0-flash. If LLM_MODEL ever
+          // points at a 2.5-series (thinking) model, thought tokens would eat
+          // this budget — also set thinkingConfig: { thinkingBudget: 0 } when
+          // swapping (omitted now: 2.0-flash rejects thinkingConfig semantics).
+          generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 800 },
         }),
       },
     );
-    if (!res.ok) throw new Error(`LLM error ${res.status}`);
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 200);
+      throw new Error(`LLM error ${res.status}: ${body}`);
+    }
     const data = (await res.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
-    return parseLLMReply(data.candidates?.[0]?.content?.parts?.[0]?.text ?? '');
+    return parseLLMReply(data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '');
   }
 }

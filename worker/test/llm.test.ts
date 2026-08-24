@@ -21,6 +21,10 @@ describe('parseLLMReply', () => {
     expect(r.reply.length).toBeGreaterThan(0);
     expect(r.emotion).toBe('thinking');
   });
+
+  it('rejects a non-string reply instead of coercing it', () => {
+    expect(parseLLMReply('{"reply":123,"emotion":"happy","off_topic":false}').reply).toBe('');
+  });
 });
 
 describe('buildSystemPrompt', () => {
@@ -36,6 +40,19 @@ describe('buildSystemPrompt', () => {
     for (const lang of ['English', 'Spanish', 'French', 'Arabic']) {
       expect(p).toContain(lang);
     }
+  });
+
+  it('falls back to English for unsupported languages', () => {
+    const p = buildSystemPrompt('Test Owner');
+    expect(p).toContain('If the visitor writes in any other language, reply in English');
+  });
+
+  it('guides emotion choice', () => {
+    const p = buildSystemPrompt('Test Owner');
+    expect(p).toContain("'happy' for greetings");
+    expect(p).toContain("'excited' when showing enthusiasm");
+    expect(p).toContain("'thinking' when unsure or deflecting");
+    expect(p).toContain("'neutral' otherwise");
   });
 });
 
@@ -57,10 +74,49 @@ describe('GeminiProvider', () => {
     expect(JSON.parse(init.body as string).system_instruction.parts[0].text).toBe('sys');
   });
 
-  it('throws on API error', async () => {
+  it('uses documented camelCase generationConfig keys with a thinking-safe token budget', async () => {
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify({ candidates: [] })));
+    const llm = new GeminiProvider('key', 'model-x', fetchFn as typeof fetch);
+    await llm.generate({ system: '', context: '', history: [], message: 'x' });
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    const config = JSON.parse(init.body as string).generationConfig;
+    expect(config.responseMimeType).toBe('application/json');
+    expect(config.maxOutputTokens).toBe(800);
+  });
+
+  it('maps assistant history messages to the model role', async () => {
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify({ candidates: [] })));
+    const llm = new GeminiProvider('key', 'model-x', fetchFn as typeof fetch);
+    await llm.generate({
+      system: '', context: '',
+      history: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hello there' },
+      ],
+      message: 'x',
+    });
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    const contents = JSON.parse(init.body as string).contents as Array<{ role: string }>;
+    expect(contents[0].role).toBe('user');
+    expect(contents[1].role).toBe('model');
+  });
+
+  it('concatenates all parts of the candidate content', async () => {
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [
+        { text: '{"reply":"Hel' },
+        { text: 'lo!","emotion":"happy","off_topic":false}' },
+      ] } }],
+    })));
+    const llm = new GeminiProvider('key', 'model-x', fetchFn as typeof fetch);
+    const reply = await llm.generate({ system: '', context: '', history: [], message: 'x' });
+    expect(reply.reply).toBe('Hello!');
+  });
+
+  it('throws on API error with status and truncated body', async () => {
     const fetchFn = vi.fn(async () => new Response('nope', { status: 500 }));
     const llm = new GeminiProvider('key', 'model-x', fetchFn as typeof fetch);
     await expect(llm.generate({ system: '', context: '', history: [], message: 'x' }))
-      .rejects.toThrow('LLM error 500');
+      .rejects.toThrow(/^LLM error 500: nope$/);
   });
 });
