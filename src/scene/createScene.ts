@@ -8,6 +8,7 @@ export interface SceneContext {
 
 export function createScene(container: HTMLElement): SceneContext {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   container.appendChild(renderer.domElement);
