@@ -1,8 +1,9 @@
 import { createScene } from './scene/createScene';
 import { buildOffice } from './scene/office';
-import { ScreenDisplay } from './scene/screenDisplay';
+import { ScreenDisplay, type ScreenMode } from './scene/screenDisplay';
 import { loadAvatar } from './character/avatar';
 import { IdleAnimator } from './character/idle';
+import { applySeatedPose } from './character/pose';
 import { CharacterStateMachine } from './state/characterState';
 import { sendChat, type ChatMessage } from './chat/api';
 import { ChatUI } from './chat/ui';
@@ -14,19 +15,29 @@ const { renderer, scene, camera } = createScene(container);
 const gate = document.getElementById('gate')!;
 gate.addEventListener('click', () => gate.classList.add('hidden'), { once: true });
 
+// Subtle mouse parallax: the camera drifts a few centimeters toward the
+// cursor so the scene feels alive. Base pose matches createScene.
+const CAMERA_BASE = { x: 0, y: 1.35, z: 3.3 };
+const mouse = { x: 0, y: 0 };
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+});
+
 const office = buildOffice();
 scene.add(office);
 
 const displays: ScreenDisplay[] = [];
+const MONITOR_MODES: ScreenMode[] = ['agents', 'board'];
 for (const [i, monitorName] of ['monitor-left', 'monitor-right'].entries()) {
-  const display = new ScreenDisplay(512, 288, i * 5 * 18);
+  const display = new ScreenDisplay(MONITOR_MODES[i], 512, 288, i * 13);
   const screen = office.getObjectByName(monitorName)!.getObjectByName('screen') as THREE.Mesh;
   const oldMaterial = screen.material as THREE.Material;
   screen.material = new THREE.MeshStandardMaterial({
     color: 0x000000,
     emissive: 0xffffff,
     emissiveMap: display.texture,
-    emissiveIntensity: 1.2,
+    emissiveIntensity: 1.0,
   });
   oldMaterial.dispose();
   displays.push(display);
@@ -39,10 +50,13 @@ sm.onChange((state) => {
 
 let idle: IdleAnimator | null = null;
 loadAvatar('/models/avatar.glb').then((avatar) => {
-  avatar.object.position.set(0, 0.48, 0.42);
-  avatar.object.rotation.y = Math.PI;
+  applySeatedPose(avatar.object);
+  // Seated: hips at chair-seat height. Avaturn's forward is +z, which is
+  // toward the camera/visitor — no yaw needed.
+  avatar.object.position.set(0, -0.5, 0.5);
   scene.add(avatar.object);
   idle = new IdleAnimator(avatar);
+  (window as unknown as { __avatar: unknown }).__avatar = avatar;
 });
 
 const history: ChatMessage[] = [];
@@ -82,6 +96,12 @@ const clock = { last: performance.now() };
 function loop(now: number) {
   const dt = Math.min((now - clock.last) / 1000, 0.1);
   clock.last = now;
+  // camera parallax (eased)
+  const ease = Math.min(dt * 3, 1);
+  camera.position.x += (CAMERA_BASE.x + mouse.x * 0.12 - camera.position.x) * ease;
+  camera.position.y += (CAMERA_BASE.y - mouse.y * 0.06 - camera.position.y) * ease;
+  camera.position.z += (CAMERA_BASE.z - camera.position.z) * ease;
+  camera.lookAt(0, 1.05, 0);
   for (const d of displays) d.update(dt);
   idle?.update(dt);
   renderer.render(scene, camera);

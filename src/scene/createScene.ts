@@ -14,17 +14,17 @@ export function createScene(container: HTMLElement): SceneContext {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0e14);
-  scene.fog = new THREE.Fog(0x0b0e14, 8, 20);
+  scene.background = new THREE.Color(0xe9e6e1);
+  scene.fog = new THREE.Fog(0xe9e6e1, 8, 20);
 
   const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 50);
-  camera.position.set(0, 1.45, 2.6);
-  camera.lookAt(0, 1.0, 0);
+  camera.position.set(0, 1.35, 3.3);
+  camera.lookAt(0, 1.05, 0);
 
-  const ambient = new THREE.AmbientLight(0x8899bb, 0.6);
-  const key = new THREE.DirectionalLight(0xffeedd, 1.2);
+  const ambient = new THREE.AmbientLight(0xdde4ee, 1.1);
+  const key = new THREE.DirectionalLight(0xfff2e0, 1.4);
   key.position.set(2, 3, 2);
-  const screenGlow = new THREE.PointLight(0x66aaff, 0.8, 4);
+  const screenGlow = new THREE.PointLight(0x88aaff, 0.5, 4);
   screenGlow.position.set(0, 1.2, -0.5);
   scene.add(ambient, key, screenGlow);
 

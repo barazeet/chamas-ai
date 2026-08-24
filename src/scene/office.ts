@@ -18,7 +18,7 @@ const SCREEN_OFF = new THREE.MeshStandardMaterial({
 const WINDOW_GLOW = new THREE.MeshStandardMaterial({
   color: 0x30363f, emissive: 0xbfd4e6, emissiveIntensity: 0.9,
 });
-const FLOOR = new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: 1 });
+const FLOOR = new THREE.MeshStandardMaterial({ color: 0xcfc9c0, roughness: 1 });
 
 function box(
   name: string,
@@ -36,7 +36,7 @@ function buildMonitor(name: string, x: number, angle: number): THREE.Group {
   const group = new THREE.Group();
   group.name = name;
   group.add(box('screen', 0.62, 0.36, 0.03, 0, 0.28, 0, SCREEN_OFF.clone()));
-  group.add(box('arm-mount', 0.08, 0.08, 0.06, 0, 0.22, 0.04, DARK));
+  group.add(box('arm-mount', 0.08, 0.08, 0.06, 0, 0.22, -0.05, DARK));
   group.position.set(x, 0.86, -0.3);
   group.rotation.y = angle;
   return group;
@@ -112,6 +112,8 @@ export function buildOffice(): THREE.Group {
   chair.add(chairBack);
   chair.add(box('chair-post', 0.06, 0.4, 0.06, 0, 0.2, 0, DARK));
   chair.position.set(0, 0, 0.62);
+  // Backrest faces the desk (-z), so the seated avatar is visible from the camera.
+  chair.rotation.y = Math.PI;
   office.add(chair);
 
   // Window on the left wall, softly glowing
