@@ -20,7 +20,13 @@ export class CharacterStateMachine {
       throw new Error(`Invalid transition ${this.state} -> ${to}`);
     }
     this.state = to;
-    for (const l of this.listeners) l(to);
+    for (const listener of this.listeners) {
+      try {
+        listener(to);
+      } catch (err) {
+        console.error('CharacterStateMachine listener error:', err);
+      }
+    }
   }
 
   onChange(listener: (s: CharacterState) => void): void {
