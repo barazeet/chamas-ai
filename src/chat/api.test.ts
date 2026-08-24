@@ -16,7 +16,7 @@ describe('sendChat', () => {
     });
   });
 
-  it('throws on non-200', async () => {
+  it('throws on non-OK', async () => {
     const fetchFn = vi.fn(async () => new Response('x', { status: 429 }));
     await expect(sendChat('hi', [], fetchFn as typeof fetch)).rejects.toThrow('429');
   });
