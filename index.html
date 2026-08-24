@@ -5,50 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>chamas.ai</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #e9e6e1; overflow: hidden; font-family: monospace; }
+    html, body { margin: 0; height: 100%; background: #f0e2cc; overflow: hidden; }
     #app { position: fixed; inset: 0; }
-    #gate {
-      position: fixed; inset: 0; z-index: 10;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(233, 230, 225, 0.55); color: #3a3f4a;
-      font-size: clamp(14px, 2.5vw, 20px); letter-spacing: 0.05em;
-      cursor: pointer; user-select: none;
-    }
-    #gate.hidden { display: none; }
-    #chat {
-      position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
-      width: min(560px, 92vw); z-index: 5; display: flex; flex-direction: column; gap: 8px;
-    }
-    #messages {
-      max-height: 30vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
-      font-size: 13px; color: #3a3f4a;
-    }
-    #messages .msg { padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.88); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    #messages .msg.user { align-self: flex-end; color: #1a7f37; }
-    #chat-form { display: flex; gap: 8px; }
-    #chat-input {
-      flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #d5d0c9;
-      background: rgba(255,255,255,0.92); color: #2a2e38; font-family: monospace; outline: none;
-    }
-    #chat-form button {
-      padding: 10px 16px; border-radius: 8px; border: 1px solid #d5d0c9;
-      background: #ffffff; color: #1a7f37; font-family: monospace; cursor: pointer;
-    }
-    #chat-input:disabled, #chat-form button:disabled {
-      opacity: 0.5; cursor: not-allowed;
-    }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  <div id="gate">this experience works best with sound — tap to enter</div>
-  <div id="chat">
-    <div id="messages"></div>
-    <form id="chat-form">
-      <input id="chat-input" type="text" maxlength="500" placeholder="ask me anything…" autocomplete="off">
-      <button type="submit">send</button>
-    </form>
-  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
