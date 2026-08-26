@@ -4,7 +4,7 @@
 
 **Goal:** After five visible seconds of typing, swivel the chair and avatar toward camera, crossfade into seated idle, complete the look with restrained head rotation, and remain idle.
 
-**Architecture:** Add a small, testable swivel timeline module that owns timing and camera-facing math. Refactor avatar animation loading so both clips are prepared before the first frame, then coordinate a shared chair/avatar pivot, animation crossfade, hand-correction fade, and post-mixer head adjustment from `main.ts`.
+**Architecture:** Add a small, testable swivel timeline module that owns timing and camera-facing math. Refactor avatar animation loading so both clips are prepared before the first frame, then coordinate a shared chair/avatar pivot, animation crossfade, hand-correction fade, and post-mixer head adjustment from `main.ts`. Drive the timeline and `AnimationMixer` from one visibility-aware frame delta so low visible frame rates preserve wall-clock timing while hidden time is excluded.
 
 **Tech Stack:** TypeScript, three.js `AnimationMixer`, Mixamo FBX retargeting, Vite, Vitest, Chrome DevTools MCP.
 
@@ -438,17 +438,24 @@ Replace the animation-loop state and avatar update with:
 
 ```ts
   let firstFrame = true;
-  let visibleAt: number | undefined;
+  let visibleElapsed = 0;
   let transitionStarted = false;
   let phase: SwivelPhase = 'typing';
   let last = performance.now();
 
+  document.addEventListener('visibilitychange', () => {
+    last = performance.now();
+  });
+
   renderer.setAnimationLoop(() => {
     const now = performance.now();
-    const dt = Math.min((now - last) / 1000, 0.1);
+    const dt =
+      firstFrame || document.visibilityState === 'hidden'
+        ? 0
+        : (now - last) / 1000;
     last = now;
-    const elapsed = visibleAt === undefined ? 0 : (now - visibleAt) / 1000;
-    const pose = getSwivelPose(elapsed, startYaw, targets);
+    visibleElapsed += dt;
+    const pose = getSwivelPose(visibleElapsed, startYaw, targets);
 
     if (pose.phase !== 'typing' && !transitionStarted) {
       transitionStarted = true;
@@ -464,14 +471,16 @@ Replace the animation-loop state and avatar update with:
 
     if (firstFrame) {
       firstFrame = false;
-      visibleAt = now;
+      last = performance.now();
       overlay.style.opacity = '0';
       setTimeout(() => overlay.remove(), 500);
     }
   });
 ```
 
-Expose the runtime state in the existing debug handle immediately after the animation-loop state declarations (`visibleAt`, `transitionStarted`, and `phase`) so browser verification can inspect it without changing production behavior:
+The first rendered frame contributes zero elapsed time and resets `last` after rendering, when the overlay fades, so pre-visibility render cost is excluded. Hidden frames also contribute zero, and resetting `last` on `visibilitychange` excludes the suspended interval when the document becomes visible again. Full visible frame deltas are intentionally retained: sparse rendering must not stretch the five-second wall-clock delay. The same `dt` advances both `visibleElapsed` and `avatar.mixer.update(dt)`, keeping the rig timeline and crossfade synchronized.
+
+Expose the runtime state in the existing debug handle immediately after the animation-loop state declarations (`visibleElapsed`, `transitionStarted`, and `phase`) so browser verification can inspect it without changing production behavior:
 
 ```ts
   Object.assign(

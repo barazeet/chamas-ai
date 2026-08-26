@@ -192,11 +192,14 @@ async function main(): Promise<void> {
   });
 
   let firstFrame = true;
-  let visibleAt: number | undefined;
   let visibleElapsed = 0;
   let transitionStarted = false;
   let phase: SwivelPhase = 'typing';
   let last = performance.now();
+
+  document.addEventListener('visibilitychange', () => {
+    last = performance.now();
+  });
 
   Object.assign(
     (window as unknown as { __ctx: Record<string, unknown> }).__ctx,
@@ -212,7 +215,10 @@ async function main(): Promise<void> {
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
-    const dt = firstFrame ? 0 : Math.min((now - last) / 1000, 0.1);
+    const dt =
+      firstFrame || document.visibilityState === 'hidden'
+        ? 0
+        : (now - last) / 1000;
     last = now;
     visibleElapsed += dt;
     const pose = getSwivelPose(visibleElapsed, startYaw, targets);
@@ -231,7 +237,7 @@ async function main(): Promise<void> {
 
     if (firstFrame) {
       firstFrame = false;
-      visibleAt = now;
+      last = performance.now();
       overlay.style.opacity = '0';
       setTimeout(() => overlay.remove(), 500);
     }
