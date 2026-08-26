@@ -41,8 +41,11 @@ export function calculateSwivelTargets(
 ): SwivelTargets {
   const dx = camera.x - pivot.x;
   const dz = camera.z - pivot.z;
-  const desiredYaw = Math.atan2(dx, dz);
-  const yawDelta = shortestAngle(startYaw, desiredYaw);
+  const planarDistance = Math.hypot(dx, dz);
+  const yawDelta =
+    planarDistance <= 1e-10
+      ? 0
+      : shortestAngle(startYaw, Math.atan2(dx, dz));
   const horizontal = Math.hypot(camera.x - head.x, camera.z - head.z);
   const desiredPitch = Math.atan2(camera.y - head.y, horizontal);
 
@@ -96,16 +99,47 @@ export function getSwivelPose(
   };
 }
 
+function hasNonUniformSourceAncestry(
+  object: THREE.Object3D,
+  scene: THREE.Scene,
+): boolean {
+  for (
+    let ancestor = object.parent;
+    ancestor && ancestor !== scene;
+    ancestor = ancestor.parent
+  ) {
+    const { x, y, z } = ancestor.scale;
+    if (
+      Math.abs(Math.abs(x) - Math.abs(y)) > 1e-10 ||
+      Math.abs(Math.abs(y) - Math.abs(z)) > 1e-10
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function createSwivelRig(
   scene: THREE.Scene,
   chair: THREE.Object3D,
   avatar: THREE.Object3D,
 ): THREE.Group {
   scene.updateMatrixWorld(true);
+  for (const [label, object] of [
+    ['chair', chair],
+    ['avatar', avatar],
+  ] as const) {
+    if (hasNonUniformSourceAncestry(object, scene)) {
+      throw new Error(
+        `Cannot create swivel rig: ${label} has non-uniformly scaled source ancestry`,
+      );
+    }
+  }
+
   const chairWorldPosition = chair.getWorldPosition(new THREE.Vector3());
   const rig = new THREE.Group();
   rig.name = 'swivelRig';
-  rig.position.copy(chairWorldPosition);
+  rig.position.copy(scene.worldToLocal(chairWorldPosition.clone()));
   scene.add(rig);
   rig.attach(chair);
   rig.attach(avatar);
