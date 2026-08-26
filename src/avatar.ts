@@ -78,7 +78,11 @@ export async function loadAvatar(scene: THREE.Scene): Promise<AvatarHandle> {
   for (const name of ['LeftForeArm', 'RightForeArm']) {
     const bone = root.getObjectByName(name) as THREE.Bone | undefined;
     if (bone)
-      handAdjust.push({ bone, axis: AXIS_X, angle: 0.2 });
+      handAdjust.push({
+        bone,
+        axis: new THREE.Vector3(1, 0, 0),
+        angle: 0.2,
+      });
   }
   return {
     root,
@@ -93,7 +97,7 @@ export async function loadAvatar(scene: THREE.Scene): Promise<AvatarHandle> {
   };
 }
 
-const AXIS_X = new THREE.Vector3(1, 0, 0);
+const IDLE_AXIS_X = new THREE.Vector3(1, 0, 0);
 const IDLE_RIGHT_FOREARM_ANGLE = -0.15;
 const adjustQuat = new THREE.Quaternion();
 /** Apply AFTER mixer.update — the mixer overwrites bone quats every frame. */
@@ -110,7 +114,7 @@ export function applyPoseAdjustment(
   if (avatar.rightForearm) {
     avatar.rightForearm.quaternion.multiply(
       adjustQuat.setFromAxisAngle(
-        AXIS_X,
+        IDLE_AXIS_X,
         IDLE_RIGHT_FOREARM_ANGLE * (1 - adjustment.handWeight),
       ),
     );
@@ -130,6 +134,7 @@ const rightEyeWorld = new THREE.Vector3();
 const eyeDirection = new THREE.Vector3();
 const headWorldQuaternion = new THREE.Quaternion();
 const lookQuaternion = new THREE.Quaternion();
+const previousEyeInverse = new THREE.Quaternion();
 const lookEuler = new THREE.Euler();
 const headLookAngles: LookAngles = { yaw: 0, pitch: 0 };
 const eyeLookAngles: LookAngles = { yaw: 0, pitch: 0 };
@@ -168,13 +173,22 @@ export function applyCameraLook(
   );
   head.quaternion.multiply(
     lookQuaternion.setFromEuler(
-      lookEuler.set(-lookState.headPitch, lookState.headYaw, 0),
+      lookEuler.set(-lookState.headPitch, lookState.headYaw, 0, 'YXZ'),
     ),
   );
   head.updateWorldMatrix(true, true);
 
   const { leftEye, rightEye } = avatar;
   if (!leftEye || !rightEye) return;
+
+  // Current clips do not track eyes, so undo our prior additive correction.
+  previousEyeInverse
+    .setFromEuler(
+      lookEuler.set(-lookState.eyePitch, lookState.eyeYaw, 0, 'YXZ'),
+    )
+    .invert();
+  leftEye.quaternion.multiply(previousEyeInverse);
+  rightEye.quaternion.multiply(previousEyeInverse);
 
   leftEye.getWorldPosition(leftEyeWorld);
   rightEye.getWorldPosition(rightEyeWorld);
@@ -205,7 +219,7 @@ export function applyCameraLook(
     delta,
   );
   lookQuaternion.setFromEuler(
-    lookEuler.set(-lookState.eyePitch, lookState.eyeYaw, 0),
+    lookEuler.set(-lookState.eyePitch, lookState.eyeYaw, 0, 'YXZ'),
   );
   leftEye.quaternion.multiply(lookQuaternion);
   rightEye.quaternion.multiply(lookQuaternion);

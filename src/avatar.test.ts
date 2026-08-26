@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {
   applyCameraLook,
   applyPoseAdjustment,
+  loadAvatar,
   loadClip,
   type AvatarHandle,
   type PoseAdjustment,
@@ -10,7 +11,20 @@ import {
 
 const loaderState = vi.hoisted(() => ({
   fbx: undefined as THREE.Group | undefined,
+  avatarRoot: undefined as THREE.Group | undefined,
   retargeted: undefined as THREE.AnimationClip | undefined,
+}));
+
+vi.mock('three/addons/loaders/GLTFLoader.js', () => ({
+  GLTFLoader: class {
+    setMeshoptDecoder(): this {
+      return this;
+    }
+
+    async loadAsync(): Promise<{ scene: THREE.Group }> {
+      return { scene: loaderState.avatarRoot! };
+    }
+  },
 }));
 
 vi.mock('three/addons/loaders/FBXLoader.js', () => ({
@@ -93,6 +107,32 @@ describe('applyPoseAdjustment', () => {
     expect(leftForearm.quaternion.angleTo(expected)).toBeCloseTo(0);
     expect(rightForearm.quaternion.angleTo(expected)).toBeCloseTo(0);
   });
+
+  test('keeps tunable hand axes separate from the idle correction axis', async () => {
+    const root = new THREE.Group();
+    const skin = new THREE.SkinnedMesh();
+    const leftForearm = new THREE.Bone();
+    const rightForearm = new THREE.Bone();
+    leftForearm.name = 'LeftForeArm';
+    rightForearm.name = 'RightForeArm';
+    skin.add(leftForearm, rightForearm);
+    skin.bind(new THREE.Skeleton([leftForearm, rightForearm]));
+    root.add(skin);
+    loaderState.avatarRoot = root;
+
+    const avatar = await loadAvatar(new THREE.Scene());
+    avatar.handAdjust[0].axis.set(0, 1, 0);
+
+    expect(avatar.handAdjust[1].axis.equals(new THREE.Vector3(1, 0, 0))).toBe(
+      true,
+    );
+    applyPoseAdjustment(avatar, noAdjustment);
+    const expected = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(1, 0, 0),
+      -0.15,
+    );
+    expect(rightForearm.quaternion.equals(expected)).toBe(true);
+  });
 });
 
 describe('applyCameraLook', () => {
@@ -163,6 +203,66 @@ describe('applyCameraLook', () => {
       avatar.head!.getWorldQuaternion(new THREE.Quaternion()),
     );
     expect(correctedGaze.y).toBeGreaterThan(animatedGaze.y);
+  });
+
+  test('does not accumulate eye correction across mixer-restored frames', () => {
+    const avatar = lookAvatar();
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(1, 1.5, 3);
+    camera.updateMatrixWorld(true);
+
+    applyCameraLook(avatar, camera, 1, 1);
+    const firstLeft = avatar.leftEye!.quaternion.clone();
+    const firstRight = avatar.rightEye!.quaternion.clone();
+    for (let frame = 0; frame < 3; frame += 1) {
+      avatar.head!.quaternion.identity();
+      avatar.root.updateMatrixWorld(true);
+      applyCameraLook(avatar, camera, 1, 0);
+    }
+
+    expect(avatar.leftEye!.quaternion.angleTo(firstLeft)).toBeCloseTo(0, 10);
+    expect(avatar.rightEye!.quaternion.angleTo(firstRight)).toBeCloseTo(0, 10);
+    expect(avatar.leftEye!.quaternion.equals(avatar.rightEye!.quaternion)).toBe(
+      true,
+    );
+  });
+
+  test('reconstructs simultaneous spherical yaw and pitch from local +Z', () => {
+    const avatar = lookAvatar();
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(2, 3, 4);
+    camera.updateMatrixWorld(true);
+
+    applyCameraLook(avatar, camera, 1, 1);
+
+    const headDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(
+      avatar.head!.quaternion,
+    );
+    const eyeDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(
+      avatar.leftEye!.quaternion,
+    );
+    expect(avatar.lookState.headYaw).not.toBe(0);
+    expect(avatar.lookState.headPitch).not.toBe(0);
+    expect(Math.atan2(headDirection.x, headDirection.z)).toBeCloseTo(
+      avatar.lookState.headYaw,
+      10,
+    );
+    expect(
+      Math.atan2(
+        headDirection.y,
+        Math.hypot(headDirection.x, headDirection.z),
+      ),
+    ).toBeCloseTo(avatar.lookState.headPitch, 10);
+    expect(Math.atan2(eyeDirection.x, eyeDirection.z)).toBeCloseTo(
+      avatar.lookState.eyeYaw,
+      10,
+    );
+    expect(
+      Math.atan2(
+        eyeDirection.y,
+        Math.hypot(eyeDirection.x, eyeDirection.z),
+      ),
+    ).toBeCloseTo(avatar.lookState.eyePitch, 10);
   });
 });
 
