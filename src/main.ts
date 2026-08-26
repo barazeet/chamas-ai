@@ -1,7 +1,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { loadAvatar, loadClip, applyPoseAdjustment } from './avatar';
+import {
+  loadAvatar,
+  loadClip,
+  applyPoseAdjustment,
+  applyCameraLook,
+} from './avatar';
 import {
   calculateSwivelTargets,
   createSwivelRig,
@@ -161,18 +166,10 @@ async function main(): Promise<void> {
   const pivotLocal = swivelSpace.worldToLocal(
     swivelRig.getWorldPosition(new THREE.Vector3()),
   );
-  const headLocal = swivelSpace.worldToLocal(
-    (avatar.head ?? avatar.root).getWorldPosition(new THREE.Vector3()),
-  );
   const cameraLocal = swivelSpace.worldToLocal(
     camera.getWorldPosition(new THREE.Vector3()),
   );
-  const targets = calculateSwivelTargets(
-    pivotLocal,
-    headLocal,
-    cameraLocal,
-    startYaw,
-  );
+  const targets = calculateSwivelTargets(pivotLocal, cameraLocal, startYaw);
 
   typingAction.reset().setEffectiveWeight(1).play();
   avatar.mixer.update(0);
@@ -247,6 +244,7 @@ async function main(): Promise<void> {
     phase = pose.phase;
     swivelRig.rotation.y = pose.rigYaw;
     applyPoseAdjustment(avatar, pose);
+    applyCameraLook(avatar, camera, pose.lookWeight, dt);
     renderer.render(scene, camera);
 
     if (firstFrame) {
