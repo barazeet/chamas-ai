@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { calculateLookAngles, dampAngle } from './look';
+import { calculateLookAngles, dampAngle, type LookAngles } from './look';
 
 export interface HandAdjust {
   bone: THREE.Bone;
@@ -131,6 +131,8 @@ const eyeDirection = new THREE.Vector3();
 const headWorldQuaternion = new THREE.Quaternion();
 const lookQuaternion = new THREE.Quaternion();
 const lookEuler = new THREE.Euler();
+const headLookAngles: LookAngles = { yaw: 0, pitch: 0 };
+const eyeLookAngles: LookAngles = { yaw: 0, pitch: 0 };
 
 /** Apply AFTER mixer.update so tracking is additive to the animated pose. */
 export function applyCameraLook(
@@ -150,6 +152,7 @@ export function applyCameraLook(
     headLocalDirection,
     HEAD_MAX_YAW,
     HEAD_MAX_PITCH,
+    headLookAngles,
   );
   lookState.headYaw = dampAngle(
     lookState.headYaw,
@@ -187,6 +190,7 @@ export function applyCameraLook(
     eyeDirection,
     EYE_MAX_YAW,
     EYE_MAX_PITCH,
+    eyeLookAngles,
   );
   lookState.eyeYaw = dampAngle(
     lookState.eyeYaw,

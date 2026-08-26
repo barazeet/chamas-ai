@@ -9,6 +9,7 @@ export function calculateLookAngles(
   localDirection: THREE.Vector3,
   maxYaw: number,
   maxPitch: number,
+  out: LookAngles = { yaw: 0, pitch: 0 },
 ): LookAngles {
   const yaw = Math.atan2(localDirection.x, localDirection.z);
   const pitch = Math.atan2(
@@ -16,10 +17,9 @@ export function calculateLookAngles(
     Math.hypot(localDirection.x, localDirection.z),
   );
 
-  return {
-    yaw: THREE.MathUtils.clamp(yaw, -maxYaw, maxYaw),
-    pitch: THREE.MathUtils.clamp(pitch, -maxPitch, maxPitch),
-  };
+  out.yaw = THREE.MathUtils.clamp(yaw, -maxYaw, maxYaw);
+  out.pitch = THREE.MathUtils.clamp(pitch, -maxPitch, maxPitch);
+  return out;
 }
 
 export function dampAngle(

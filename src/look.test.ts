@@ -31,6 +31,21 @@ describe('calculateLookAngles', () => {
     expect(positive).toEqual({ yaw: degrees(30), pitch: degrees(25) });
     expect(negative).toEqual({ yaw: degrees(-30), pitch: degrees(-25) });
   });
+
+  test('mutates and returns a supplied output object', () => {
+    const output = { yaw: 0, pitch: 0 };
+
+    const angles = calculateLookAngles(
+      new THREE.Vector3(1, 1, 1).normalize(),
+      degrees(90),
+      degrees(90),
+      output,
+    );
+
+    expect(angles).toBe(output);
+    expect(output.yaw).toBeCloseTo(degrees(45));
+    expect(output.pitch).toBeCloseTo(Math.atan2(1, Math.sqrt(2)));
+  });
 });
 
 describe('dampAngle', () => {
