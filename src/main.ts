@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { loadAvatar, playClip, applyHandAdjust } from './avatar';
+import { loadAvatar, loadClip, applyPoseAdjustment } from './avatar';
+import {
+  calculateSwivelTargets,
+  createSwivelRig,
+  getSwivelPose,
+  type SwivelPhase,
+} from './swivel';
 
 /**
  * Minimal faithful viewer for the Blender-exported office.
@@ -144,7 +150,25 @@ async function main(): Promise<void> {
   scene.environment = pmrem.fromScene(scene, 0.04).texture;
 
   const avatar = await loadAvatar(scene);
-  await playClip(avatar, '/models/anims/Typing.fbx');
+  const typingAction = await loadClip(avatar, '/models/anims/Typing.fbx');
+  const idleAction = await loadClip(avatar, '/models/anims/Seated Idle.fbx');
+  const chair = gltf.scene.getObjectByName('chair');
+  if (!chair) throw new Error('office chair object missing');
+  const swivelRig = createSwivelRig(scene, chair, avatar.root);
+  const startYaw = swivelRig.rotation.y;
+  const pivotWorld = swivelRig.getWorldPosition(new THREE.Vector3());
+  const headWorld = (avatar.head ?? avatar.root).getWorldPosition(
+    new THREE.Vector3(),
+  );
+  const targets = calculateSwivelTargets(
+    pivotWorld,
+    headWorld,
+    camera.position,
+    startYaw,
+  );
+
+  typingAction.reset().setEffectiveWeight(1).play();
+  avatar.mixer.update(0);
   (window as unknown as { __tuneHands: unknown }).__tuneHands = (
     angle: number,
     axis?: [number, number, number],
@@ -162,18 +186,45 @@ async function main(): Promise<void> {
   });
 
   let firstFrame = true;
+  let visibleAt: number | undefined;
+  let transitionStarted = false;
+  let phase: SwivelPhase = 'typing';
   let last = performance.now();
+
+  Object.assign(
+    (window as unknown as { __ctx: Record<string, unknown> }).__ctx,
+    {
+      avatar,
+      chair,
+      swivelRig,
+      typingAction,
+      idleAction,
+      getPhase: () => phase,
+    },
+  );
+
   renderer.setAnimationLoop(() => {
     const now = performance.now();
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
-    if (avatar) {
-      avatar.mixer.update(dt);
-      applyHandAdjust(avatar);
+    const elapsed = visibleAt === undefined ? 0 : (now - visibleAt) / 1000;
+    const pose = getSwivelPose(elapsed, startYaw, targets);
+
+    if (pose.phase !== 'typing' && !transitionStarted) {
+      transitionStarted = true;
+      idleAction.reset().setEffectiveWeight(1).play();
+      typingAction.crossFadeTo(idleAction, 0.6, true);
     }
+
+    phase = pose.phase;
+    swivelRig.rotation.y = pose.rigYaw;
+    avatar.mixer.update(dt);
+    applyPoseAdjustment(avatar, pose);
     renderer.render(scene, camera);
+
     if (firstFrame) {
       firstFrame = false;
+      visibleAt = now;
       overlay.style.opacity = '0';
       setTimeout(() => overlay.remove(), 500);
     }
