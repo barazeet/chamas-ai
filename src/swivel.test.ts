@@ -28,79 +28,39 @@ describe('shortestAngle', () => {
 });
 
 describe('calculateSwivelTargets', () => {
-  test('splits horizontal camera tracking between the rig and head', () => {
+  test('applies 80% of horizontal camera tracking to the rig', () => {
     const target = calculateSwivelTargets(
       new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 1.5, 0),
       new THREE.Vector3(1, 1.5, 1),
       0,
     );
 
-    expect(target.rigYaw).toBeCloseTo(degrees(36));
-    expect(target.headYaw).toBeCloseTo(degrees(9));
-    expect(target.headPitch).toBeCloseTo(0);
+    expect(target).toEqual({ rigYaw: degrees(36) });
   });
 
   test('preserves yaw when the camera has no planar direction', () => {
     const startYaw = degrees(70);
     const target = calculateSwivelTargets(
       new THREE.Vector3(2, 0, -3),
-      new THREE.Vector3(2, 1.5, -3),
       new THREE.Vector3(2 + 1e-12, 4, -3),
       startYaw,
     );
 
-    expect(target.rigYaw).toBe(startYaw);
-    expect(target.headYaw).toBe(0);
-  });
-
-  test('clamps positive and negative head rotation exactly', () => {
-    const positive = calculateSwivelTargets(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0.5, 100, -Math.sqrt(0.75)),
-      0,
-    );
-    const negative = calculateSwivelTargets(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(-0.5, -100, -Math.sqrt(0.75)),
-      0,
-    );
-
-    expect(positive.headYaw).toBe(degrees(25));
-    expect(positive.headPitch).toBe(degrees(10));
-    expect(negative.headYaw).toBe(degrees(-25));
-    expect(negative.headPitch).toBe(degrees(-10));
-  });
-
-  test('clamps head rotation for the specified elevated camera position', () => {
-    const target = calculateSwivelTargets(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 1.5, 0),
-      new THREE.Vector3(10, 20, 0),
-      0,
-    );
-
-    expect(Math.abs(target.headYaw)).toBeLessThanOrEqual(degrees(25));
-    expect(Math.abs(target.headPitch)).toBeLessThanOrEqual(degrees(10));
+    expect(target).toEqual({ rigYaw: startYaw });
   });
 });
 
 describe('getSwivelPose', () => {
   const target = {
     rigYaw: degrees(36),
-    headYaw: degrees(9),
-    headPitch: degrees(6),
   };
 
   test('returns the exact typing pose before five seconds', () => {
     expect(getSwivelPose(4.99, 0, target)).toEqual({
       phase: 'typing',
       rigYaw: 0,
-      headYaw: 0,
-      headPitch: 0,
       handWeight: 1,
+      lookWeight: 0,
     });
   });
 
@@ -112,19 +72,27 @@ describe('getSwivelPose', () => {
     expect(pose.rigYaw).toBeLessThan(target.rigYaw);
     expect(pose.handWeight).toBeGreaterThan(0);
     expect(pose.handWeight).toBeLessThan(1);
+    expect(pose.lookWeight).toBeGreaterThan(0);
+    expect(pose.lookWeight).toBeLessThan(1);
   });
 
   test.each([
-    { elapsed: 5, phase: 'turning', handWeight: 1 },
-    { elapsed: 5.6, phase: 'turning', handWeight: 0 },
-    { elapsed: 6.4, phase: 'idle', handWeight: 0 },
+    { elapsed: 5, phase: 'turning', handWeight: 1, lookWeight: 0 },
+    {
+      elapsed: 5.6,
+      phase: 'turning',
+      handWeight: 0,
+      lookWeight: 0.3935860058309038,
+    },
+    { elapsed: 6.4, phase: 'idle', handWeight: 0, lookWeight: 1 },
   ] as const)(
-    'returns exact phase and hand weight at $elapsed seconds',
-    ({ elapsed, phase, handWeight }) => {
+    'returns exact phase and weights at $elapsed seconds',
+    ({ elapsed, phase, handWeight, lookWeight }) => {
       const pose = getSwivelPose(elapsed, 0, target);
 
       expect(pose.phase).toBe(phase);
       expect(pose.handWeight).toBe(handWeight);
+      expect(pose.lookWeight).toBeCloseTo(lookWeight);
     },
   );
 
@@ -133,6 +101,7 @@ describe('getSwivelPose', () => {
       phase: 'idle',
       ...target,
       handWeight: 0,
+      lookWeight: 1,
     });
   });
 });

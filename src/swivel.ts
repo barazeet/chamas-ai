@@ -4,20 +4,17 @@ export type SwivelPhase = 'typing' | 'turning' | 'idle';
 
 export interface SwivelTargets {
   rigYaw: number;
-  headYaw: number;
-  headPitch: number;
 }
 
 export interface SwivelPose extends SwivelTargets {
   phase: SwivelPhase;
   handWeight: number;
+  lookWeight: number;
 }
 
 const TYPING_DURATION = 5;
 const SWIVEL_DURATION = 1.4;
 const HAND_CROSSFADE_DURATION = 0.6;
-const MAX_HEAD_YAW = THREE.MathUtils.degToRad(25);
-const MAX_HEAD_PITCH = THREE.MathUtils.degToRad(10);
 
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
@@ -53,7 +50,6 @@ export function splitVisibleDelta(
 
 export function calculateSwivelTargets(
   pivot: THREE.Vector3,
-  head: THREE.Vector3,
   camera: THREE.Vector3,
   startYaw: number,
 ): SwivelTargets {
@@ -64,21 +60,9 @@ export function calculateSwivelTargets(
     planarDistance <= 1e-10
       ? 0
       : shortestAngle(startYaw, Math.atan2(dx, dz));
-  const horizontal = Math.hypot(camera.x - head.x, camera.z - head.z);
-  const desiredPitch = Math.atan2(camera.y - head.y, horizontal);
 
   return {
     rigYaw: startYaw + yawDelta * 0.8,
-    headYaw: THREE.MathUtils.clamp(
-      yawDelta * 0.2,
-      -MAX_HEAD_YAW,
-      MAX_HEAD_YAW,
-    ),
-    headPitch: THREE.MathUtils.clamp(
-      desiredPitch,
-      -MAX_HEAD_PITCH,
-      MAX_HEAD_PITCH,
-    ),
   };
 }
 
@@ -91,14 +75,13 @@ export function getSwivelPose(
     return {
       phase: 'typing',
       rigYaw: startYaw,
-      headYaw: 0,
-      headPitch: 0,
       handWeight: 1,
+      lookWeight: 0,
     };
   }
 
   if (elapsed >= TYPING_DURATION + SWIVEL_DURATION) {
-    return { phase: 'idle', ...target, handWeight: 0 };
+    return { phase: 'idle', ...target, handWeight: 0, lookWeight: 1 };
   }
 
   const swivelProgress = smoothstep(
@@ -111,9 +94,8 @@ export function getSwivelPose(
   return {
     phase: 'turning',
     rigYaw: THREE.MathUtils.lerp(startYaw, target.rigYaw, swivelProgress),
-    headYaw: target.headYaw * swivelProgress,
-    headPitch: target.headPitch * swivelProgress,
     handWeight: 1 - handProgress,
+    lookWeight: swivelProgress,
   };
 }
 
