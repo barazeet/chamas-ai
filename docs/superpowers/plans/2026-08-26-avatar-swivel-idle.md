@@ -339,6 +339,9 @@ Return the head from `loadAvatar`:
 
 Replace `applyHandAdjust` with:
 
+The avatar faces +Z, and positive local X pitches +Z downward, so positive
+camera elevation must use negative local-X pitch.
+
 ```ts
 export interface PoseAdjustment {
   handWeight: number;
@@ -361,7 +364,7 @@ export function applyPoseAdjustment(
     );
   }
   if (!avatar.head) return;
-  headEuler.set(adjustment.headPitch, adjustment.headYaw, 0);
+  headEuler.set(-adjustment.headPitch, adjustment.headYaw, 0);
   avatar.head.quaternion.multiply(headQuat.setFromEuler(headEuler));
 }
 ```
