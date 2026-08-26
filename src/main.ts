@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { loadAvatar, playClip, applyHandAdjust } from './avatar';
 
 /**
  * Minimal faithful viewer for the Blender-exported office.
@@ -58,6 +59,10 @@ async function main(): Promise<void> {
     });
   overlay.textContent = 'building scene…'; // decode + GPU upload phase
   scene.add(gltf.scene);
+  // Composition nudge: pull the keyboard a few cm toward the chair so the
+  // avatar's hands sit on it (user-directed tweak, not a blend change).
+  const keyboard = gltf.scene.getObjectByName('keyboard');
+  if (keyboard) keyboard.position.z -= 0.04;
   // debug handle for pipeline verification
   (window as unknown as { __ctx: unknown }).__ctx = { renderer, scene, camera, gltf };
 
@@ -138,6 +143,18 @@ async function main(): Promise<void> {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(scene, 0.04).texture;
 
+  const avatar = await loadAvatar(scene);
+  await playClip(avatar, '/models/anims/Typing.fbx');
+  (window as unknown as { __tuneHands: unknown }).__tuneHands = (
+    angle: number,
+    axis?: [number, number, number],
+  ) => {
+    for (const a of avatar.handAdjust) {
+      a.angle = angle;
+      if (axis) a.axis.set(axis[0], axis[1], axis[2]);
+    }
+  };
+
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     applyLensFov(camera);
@@ -145,7 +162,15 @@ async function main(): Promise<void> {
   });
 
   let firstFrame = true;
+  let last = performance.now();
   renderer.setAnimationLoop(() => {
+    const now = performance.now();
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    if (avatar) {
+      avatar.mixer.update(dt);
+      applyHandAdjust(avatar);
+    }
     renderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
@@ -155,4 +180,11 @@ async function main(): Promise<void> {
   });
 }
 
-main();
+main().catch((e) => {
+  const el = document.createElement('div');
+  el.style.cssText =
+    'position:fixed;top:10px;left:10px;color:#f66;font:12px monospace;' +
+    'z-index:99;white-space:pre-wrap;max-width:90vw';
+  el.textContent = String(e?.stack ?? e);
+  document.body.appendChild(el);
+});
