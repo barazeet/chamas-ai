@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import * as THREE from 'three';
 import {
+  applyCameraLook,
   applyPoseAdjustment,
   loadClip,
   type AvatarHandle,
@@ -26,54 +27,142 @@ vi.mock('three/addons/utils/SkeletonUtils.js', () => ({
 
 const noAdjustment: PoseAdjustment = {
   handWeight: 0,
-  headYaw: 0,
-  headPitch: 0,
 };
 
-function avatarWith(
-  values: Pick<AvatarHandle, 'handAdjust' | 'head'>,
-): AvatarHandle {
+function avatarWith(values: Partial<AvatarHandle>): AvatarHandle {
   return values as AvatarHandle;
 }
 
 describe('applyPoseAdjustment', () => {
-  test('positive head pitch raises the avatar forward vector', () => {
-    const head = new THREE.Bone();
-
-    applyPoseAdjustment(avatarWith({ handAdjust: [], head }), {
-      ...noAdjustment,
-      headPitch: 0.2,
-    });
-
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(
-      head.quaternion,
-    );
-    expect(forward.y).toBeGreaterThan(0);
-  });
-
-  test('scales hand correction by hand weight', () => {
-    const bone = new THREE.Bone();
+  test('lifts only the right wrist in the idle pose', () => {
+    const leftForearm = new THREE.Bone();
+    const rightForearm = new THREE.Bone();
     const axis = new THREE.Vector3(1, 0, 0);
 
     applyPoseAdjustment(
       avatarWith({
-        handAdjust: [{ bone, axis, angle: 0.2 }],
-        head: undefined,
+        handAdjust: [
+          { bone: leftForearm, axis, angle: 0.2 },
+          { bone: rightForearm, axis, angle: 0.2 },
+        ],
+        rightForearm,
       }),
-      { ...noAdjustment, handWeight: 0.25 },
+      noAdjustment,
+    );
+
+    const expected = new THREE.Quaternion().setFromAxisAngle(axis, -0.15);
+    expect(rightForearm.quaternion.equals(expected)).toBe(true);
+    expect(leftForearm.quaternion.equals(new THREE.Quaternion())).toBe(true);
+  });
+
+  test('linearly blends the right wrist from typing to idle correction', () => {
+    const rightForearm = new THREE.Bone();
+    const axis = new THREE.Vector3(1, 0, 0);
+
+    applyPoseAdjustment(
+      avatarWith({
+        handAdjust: [{ bone: rightForearm, axis, angle: 0.2 }],
+        rightForearm,
+      }),
+      { handWeight: 0.5 },
+    );
+
+    const expected = new THREE.Quaternion().setFromAxisAngle(
+      axis,
+      0.2 * 0.5 + -0.15 * 0.5,
+    );
+    expect(rightForearm.quaternion.angleTo(expected)).toBeCloseTo(0);
+  });
+
+  test('scales typing correction for both hands by hand weight', () => {
+    const leftForearm = new THREE.Bone();
+    const rightForearm = new THREE.Bone();
+    const axis = new THREE.Vector3(1, 0, 0);
+
+    applyPoseAdjustment(
+      avatarWith({
+        handAdjust: [
+          { bone: leftForearm, axis, angle: 0.2 },
+          { bone: rightForearm, axis, angle: 0.2 },
+        ],
+      }),
+      { handWeight: 0.25 },
     );
 
     const expected = new THREE.Quaternion().setFromAxisAngle(axis, 0.05);
-    expect(bone.quaternion.angleTo(expected)).toBeCloseTo(0);
+    expect(leftForearm.quaternion.angleTo(expected)).toBeCloseTo(0);
+    expect(rightForearm.quaternion.angleTo(expected)).toBeCloseTo(0);
+  });
+});
+
+describe('applyCameraLook', () => {
+  function lookAvatar(eyes: 'both' | 'left' = 'both'): AvatarHandle {
+    const root = new THREE.Group();
+    const head = new THREE.Bone();
+    const leftEye = new THREE.Bone();
+    const rightEye = new THREE.Bone();
+    head.position.y = 1;
+    leftEye.position.set(-0.03, 0.05, 0.1);
+    rightEye.position.set(0.03, 0.05, 0.1);
+    head.add(leftEye);
+    if (eyes === 'both') head.add(rightEye);
+    root.add(head);
+    root.updateMatrixWorld(true);
+    return avatarWith({
+      root,
+      head,
+      leftEye,
+      rightEye: eyes === 'both' ? rightEye : undefined,
+      lookState: { headYaw: 0, headPitch: 0, eyeYaw: 0, eyePitch: 0 },
+    });
+  }
+
+  test('applies exactly equal conjugate corrections to both eyes', () => {
+    const avatar = lookAvatar();
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(1, 1.5, 3);
+    camera.updateMatrixWorld(true);
+
+    applyCameraLook(avatar, camera, 1, 1);
+
+    expect(avatar.leftEye!.quaternion.equals(avatar.rightEye!.quaternion)).toBe(
+      true,
+    );
+    expect(avatar.leftEye!.quaternion.equals(new THREE.Quaternion())).toBe(
+      false,
+    );
   });
 
-  test('is safe when the avatar has no head bone', () => {
-    expect(() =>
-      applyPoseAdjustment(
-        avatarWith({ handAdjust: [], head: undefined }),
-        noAdjustment,
-      ),
-    ).not.toThrow();
+  test('tracks with the head but leaves a lone eye untouched', () => {
+    const avatar = lookAvatar('left');
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(1, 1.5, 3);
+    camera.updateMatrixWorld(true);
+    const eyeBefore = avatar.leftEye!.quaternion.clone();
+
+    applyCameraLook(avatar, camera, 1, 1);
+
+    expect(avatar.head!.quaternion.equals(new THREE.Quaternion())).toBe(false);
+    expect(avatar.leftEye!.quaternion.equals(eyeBefore)).toBe(true);
+  });
+
+  test('raises the current animated head gaze toward an elevated camera', () => {
+    const avatar = lookAvatar();
+    avatar.head!.rotation.y = 0.35;
+    avatar.root.updateMatrixWorld(true);
+    const animatedGaze = new THREE.Vector3(0, 0, 1).applyQuaternion(
+      avatar.head!.getWorldQuaternion(new THREE.Quaternion()),
+    );
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(2, 3, 4);
+    camera.updateMatrixWorld(true);
+
+    applyCameraLook(avatar, camera, 1, 1);
+
+    const correctedGaze = new THREE.Vector3(0, 0, 1).applyQuaternion(
+      avatar.head!.getWorldQuaternion(new THREE.Quaternion()),
+    );
+    expect(correctedGaze.y).toBeGreaterThan(animatedGaze.y);
   });
 });
 
@@ -114,7 +203,7 @@ describe('loadClip', () => {
       hipTrack,
     ]);
     const uncacheAction = vi.spyOn(mixer, 'uncacheAction');
-    const avatar = { root, skin, mixer, handAdjust: [] } as AvatarHandle;
+    const avatar = avatarWith({ root, skin, mixer, handAdjust: [] });
 
     const action = await loadClip(avatar, '/idle.fbx');
 
