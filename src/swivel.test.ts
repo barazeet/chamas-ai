@@ -72,6 +72,18 @@ describe('calculateSwivelTargets', () => {
     expect(negative.headYaw).toBe(degrees(-25));
     expect(negative.headPitch).toBe(degrees(-10));
   });
+
+  test('clamps head rotation for the specified elevated camera position', () => {
+    const target = calculateSwivelTargets(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 1.5, 0),
+      new THREE.Vector3(10, 20, 0),
+      0,
+    );
+
+    expect(Math.abs(target.headYaw)).toBeLessThanOrEqual(degrees(25));
+    expect(Math.abs(target.headPitch)).toBeLessThanOrEqual(degrees(10));
+  });
 });
 
 describe('getSwivelPose', () => {
