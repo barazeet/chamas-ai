@@ -33,6 +33,24 @@ export function shortestAngle(from: number, to: number): number {
   return Math.atan2(Math.sin(delta), Math.cos(delta));
 }
 
+export function splitVisibleDelta(
+  previousElapsed: number,
+  delta: number,
+  transitionAt = TYPING_DURATION,
+) {
+  const beforeTransition = Math.min(
+    Math.max(transitionAt - previousElapsed, 0),
+    delta,
+  );
+  return {
+    beforeTransition,
+    afterTransition: delta - beforeTransition,
+    reachesTransition:
+      previousElapsed < transitionAt &&
+      previousElapsed + delta >= transitionAt,
+  };
+}
+
 export function calculateSwivelTargets(
   pivot: THREE.Vector3,
   head: THREE.Vector3,

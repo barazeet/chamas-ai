@@ -401,6 +401,7 @@ import {
   calculateSwivelTargets,
   createSwivelRig,
   getSwivelPose,
+  splitVisibleDelta,
   type SwivelPhase,
 } from './swivel';
 ```
@@ -442,9 +443,14 @@ Replace the animation-loop state and avatar update with:
   let transitionStarted = false;
   let phase: SwivelPhase = 'typing';
   let last = performance.now();
+  let pendingVisibleDelta = 0;
 
   document.addEventListener('visibilitychange', () => {
-    last = performance.now();
+    const now = performance.now();
+    if (document.visibilityState === 'hidden' && !firstFrame) {
+      pendingVisibleDelta += (now - last) / 1000;
+    }
+    last = now;
   });
 
   renderer.setAnimationLoop(() => {
@@ -452,20 +458,28 @@ Replace the animation-loop state and avatar update with:
     const dt =
       firstFrame || document.visibilityState === 'hidden'
         ? 0
-        : (now - last) / 1000;
+        : pendingVisibleDelta + (now - last) / 1000;
+    if (!firstFrame && document.visibilityState === 'visible') {
+      pendingVisibleDelta = 0;
+    }
     last = now;
+    const previousElapsed = visibleElapsed;
     visibleElapsed += dt;
     const pose = getSwivelPose(visibleElapsed, startYaw, targets);
+    const split = splitVisibleDelta(previousElapsed, dt);
 
-    if (pose.phase !== 'typing' && !transitionStarted) {
+    if (split.reachesTransition && !transitionStarted) {
+      avatar.mixer.update(split.beforeTransition);
       transitionStarted = true;
       idleAction.reset().setEffectiveWeight(1).play();
-      typingAction.crossFadeTo(idleAction, 0.6, true);
+      typingAction.crossFadeTo(idleAction, 0.6, false);
+      avatar.mixer.update(split.afterTransition);
+    } else {
+      avatar.mixer.update(dt);
     }
 
     phase = pose.phase;
     swivelRig.rotation.y = pose.rigYaw;
-    avatar.mixer.update(dt);
     applyPoseAdjustment(avatar, pose);
     renderer.render(scene, camera);
 
@@ -478,9 +492,11 @@ Replace the animation-loop state and avatar update with:
   });
 ```
 
-The first rendered frame contributes zero elapsed time and resets `last` after rendering, when the overlay fades, so pre-visibility render cost is excluded. Hidden frames also contribute zero, and resetting `last` on `visibilitychange` excludes the suspended interval when the document becomes visible again. Full visible frame deltas are intentionally retained: sparse rendering must not stretch the five-second wall-clock delay. The same `dt` advances both `visibleElapsed` and `avatar.mixer.update(dt)`, keeping the rig timeline and crossfade synchronized.
+The first rendered frame contributes zero elapsed time and resets `last` after rendering, when the overlay fades, so pre-visibility render cost is excluded. When the document becomes hidden, preserve the visible interval since the last RAF in `pendingVisibleDelta`; hidden time contributes zero, and resetting `last` on each `visibilitychange` excludes it. Consume the pending interval on the next visible RAF.
 
-Expose the runtime state in the existing debug handle immediately after the animation-loop state declarations (`visibleElapsed`, `transitionStarted`, and `phase`) so browser verification can inspect it without changing production behavior:
+Full visible frame deltas are intentionally retained: sparse rendering must not stretch the five-second wall-clock delay. When one delta crosses five seconds, `splitVisibleDelta` advances the mixer to exactly the boundary while only typing runs, starts the non-warped crossfade, then advances only the remainder. Frames wholly before or after the boundary update the mixer once with the shared `dt`. This keeps `visibleElapsed`, the rig timeline, action time, and crossfade synchronized.
+
+Expose the avatar objects/actions and `getPhase` in the existing debug handle so browser verification can inspect the public runtime state without exposing internal clock or transition variables:
 
 ```ts
   Object.assign(

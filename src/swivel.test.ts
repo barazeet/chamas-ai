@@ -5,6 +5,7 @@ import {
   createSwivelRig,
   getSwivelPose,
   shortestAngle,
+  splitVisibleDelta,
 } from './swivel';
 
 const degrees = THREE.MathUtils.degToRad;
@@ -132,6 +133,32 @@ describe('getSwivelPose', () => {
       phase: 'idle',
       ...target,
       handWeight: 0,
+    });
+  });
+});
+
+describe('splitVisibleDelta', () => {
+  test('keeps a delta entirely before the transition', () => {
+    expect(splitVisibleDelta(3, 1)).toEqual({
+      beforeTransition: 1,
+      afterTransition: 0,
+      reachesTransition: false,
+    });
+  });
+
+  test('splits a delta exactly at the transition boundary', () => {
+    const split = splitVisibleDelta(4, 1.2);
+
+    expect(split.beforeTransition).toBe(1);
+    expect(split.afterTransition).toBeCloseTo(0.2);
+    expect(split.reachesTransition).toBe(true);
+  });
+
+  test('keeps a delta entirely after the transition', () => {
+    expect(splitVisibleDelta(6, 1.2)).toEqual({
+      beforeTransition: 0,
+      afterTransition: 1.2,
+      reachesTransition: false,
     });
   });
 });

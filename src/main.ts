@@ -6,6 +6,7 @@ import {
   calculateSwivelTargets,
   createSwivelRig,
   getSwivelPose,
+  splitVisibleDelta,
   type SwivelPhase,
 } from './swivel';
 
@@ -196,9 +197,14 @@ async function main(): Promise<void> {
   let transitionStarted = false;
   let phase: SwivelPhase = 'typing';
   let last = performance.now();
+  let pendingVisibleDelta = 0;
 
   document.addEventListener('visibilitychange', () => {
-    last = performance.now();
+    const now = performance.now();
+    if (document.visibilityState === 'hidden' && !firstFrame) {
+      pendingVisibleDelta += (now - last) / 1000;
+    }
+    last = now;
   });
 
   Object.assign(
@@ -218,20 +224,28 @@ async function main(): Promise<void> {
     const dt =
       firstFrame || document.visibilityState === 'hidden'
         ? 0
-        : (now - last) / 1000;
+        : pendingVisibleDelta + (now - last) / 1000;
+    if (!firstFrame && document.visibilityState === 'visible') {
+      pendingVisibleDelta = 0;
+    }
     last = now;
+    const previousElapsed = visibleElapsed;
     visibleElapsed += dt;
     const pose = getSwivelPose(visibleElapsed, startYaw, targets);
+    const split = splitVisibleDelta(previousElapsed, dt);
 
-    if (pose.phase !== 'typing' && !transitionStarted) {
+    if (split.reachesTransition && !transitionStarted) {
+      avatar.mixer.update(split.beforeTransition);
       transitionStarted = true;
       idleAction.reset().setEffectiveWeight(1).play();
       typingAction.crossFadeTo(idleAction, 0.6, false);
+      avatar.mixer.update(split.afterTransition);
+    } else {
+      avatar.mixer.update(dt);
     }
 
     phase = pose.phase;
     swivelRig.rotation.y = pose.rigYaw;
-    avatar.mixer.update(dt);
     applyPoseAdjustment(avatar, pose);
     renderer.render(scene, camera);
 
