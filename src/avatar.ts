@@ -15,6 +15,13 @@ export interface AvatarHandle {
   skin: THREE.SkinnedMesh;
   mixer: THREE.AnimationMixer;
   handAdjust: HandAdjust[];
+  head?: THREE.Bone;
+}
+
+export interface PoseAdjustment {
+  handWeight: number;
+  headYaw: number;
+  headPitch: number;
 }
 
 /** Seat center at floor level, measured from the live scene. */
@@ -44,6 +51,7 @@ export async function loadAvatar(scene: THREE.Scene): Promise<AvatarHandle> {
     }
   });
   if (!skin) throw new Error('avatar skinned mesh missing');
+  const head = root.getObjectByName('Head') as THREE.Bone | undefined;
   scene.add(root);
   // The mixer MUST live on the SkinnedMesh: retargetClip emits tracks as
   // '.bones[Name].prop', which only bind against a .skeleton.bones array.
@@ -57,16 +65,28 @@ export async function loadAvatar(scene: THREE.Scene): Promise<AvatarHandle> {
     if (bone)
       handAdjust.push({ bone, axis: new THREE.Vector3(1, 0, 0), angle: 0.2 });
   }
-  return { root, skin, mixer, handAdjust };
+  return { root, skin, mixer, handAdjust, head };
 }
 
 const adjustQuat = new THREE.Quaternion();
+const adjustEuler = new THREE.Euler();
 /** Apply AFTER mixer.update — the mixer overwrites bone quats every frame. */
-export function applyHandAdjust(avatar: AvatarHandle): void {
+export function applyPoseAdjustment(
+  avatar: AvatarHandle,
+  adjustment: PoseAdjustment,
+): void {
   for (const a of avatar.handAdjust) {
     if (!a.angle) continue;
-    a.bone.quaternion.multiply(adjustQuat.setFromAxisAngle(a.axis, a.angle));
+    a.bone.quaternion.multiply(
+      adjustQuat.setFromAxisAngle(a.axis, a.angle * adjustment.handWeight),
+    );
   }
+  if (!avatar.head) return;
+  avatar.head.quaternion.multiply(
+    adjustQuat.setFromEuler(
+      adjustEuler.set(adjustment.headPitch, adjustment.headYaw, 0),
+    ),
+  );
 }
 
 /**
@@ -75,7 +95,7 @@ export function applyHandAdjust(avatar: AvatarHandle): void {
  * name map is mechanical. Unit scale is derived from both hips' rest
  * heights — never hardcoded.
  */
-export async function playClip(
+export async function loadClip(
   avatar: AvatarHandle,
   url: string,
 ): Promise<THREE.AnimationAction> {
@@ -155,8 +175,7 @@ export async function playClip(
     avatar.mixer.update(0);
   }
 
-  const action = avatar.mixer.clipAction(retargeted);
-  action.setLoop(THREE.LoopRepeat, Infinity);
-  action.play();
-  return action;
+  const clipAction = avatar.mixer.clipAction(retargeted);
+  clipAction.setLoop(THREE.LoopRepeat, Infinity);
+  return clipAction;
 }
