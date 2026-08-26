@@ -84,7 +84,7 @@ export function applyPoseAdjustment(
   if (!avatar.head) return;
   avatar.head.quaternion.multiply(
     adjustQuat.setFromEuler(
-      adjustEuler.set(adjustment.headPitch, adjustment.headYaw, 0),
+      adjustEuler.set(-adjustment.headPitch, adjustment.headYaw, 0),
     ),
   );
 }
@@ -153,11 +153,15 @@ export async function loadClip(
   ) as THREE.VectorKeyframeTrack | undefined;
   const hipsBone = avatar.root.getObjectByName('Hips') as THREE.Bone;
   if (hipTrack && hipsBone) {
-    const probe = avatar.mixer.clipAction(retargeted);
+    const probeMixer = new THREE.AnimationMixer(avatar.skin);
+    const probe = probeMixer.clipAction(retargeted);
     probe.play();
-    avatar.mixer.update(0);
+    probeMixer.update(0);
     avatar.root.updateMatrixWorld(true);
     const hipsWorld = hipsBone.getWorldPosition(new THREE.Vector3());
+    probe.stop();
+    probeMixer.uncacheAction(retargeted);
+    probeMixer.uncacheRoot(avatar.skin);
     const deltaWorld = SEAT_TARGET.clone().sub(hipsWorld);
     const inv = new THREE.Matrix4()
       .copy((hipsBone.parent as THREE.Object3D).matrixWorld)
@@ -171,8 +175,6 @@ export async function loadClip(
       v[i + 1] += deltaLocal.y;
       v[i + 2] += deltaLocal.z;
     }
-    avatar.mixer.uncacheAction(retargeted);
-    avatar.mixer.update(0);
   }
 
   const clipAction = avatar.mixer.clipAction(retargeted);
