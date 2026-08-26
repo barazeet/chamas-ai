@@ -156,14 +156,20 @@ async function main(): Promise<void> {
   if (!chair) throw new Error('office chair object missing');
   const swivelRig = createSwivelRig(scene, chair, avatar.root);
   const startYaw = swivelRig.rotation.y;
-  const pivotWorld = swivelRig.getWorldPosition(new THREE.Vector3());
-  const headWorld = (avatar.head ?? avatar.root).getWorldPosition(
-    new THREE.Vector3(),
+  const swivelSpace = swivelRig.parent!;
+  const pivotLocal = swivelSpace.worldToLocal(
+    swivelRig.getWorldPosition(new THREE.Vector3()),
+  );
+  const headLocal = swivelSpace.worldToLocal(
+    (avatar.head ?? avatar.root).getWorldPosition(new THREE.Vector3()),
+  );
+  const cameraLocal = swivelSpace.worldToLocal(
+    camera.getWorldPosition(new THREE.Vector3()),
   );
   const targets = calculateSwivelTargets(
-    pivotWorld,
-    headWorld,
-    camera.position,
+    pivotLocal,
+    headLocal,
+    cameraLocal,
     startYaw,
   );
 
@@ -187,6 +193,7 @@ async function main(): Promise<void> {
 
   let firstFrame = true;
   let visibleAt: number | undefined;
+  let visibleElapsed = 0;
   let transitionStarted = false;
   let phase: SwivelPhase = 'typing';
   let last = performance.now();
@@ -205,15 +212,15 @@ async function main(): Promise<void> {
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
-    const dt = Math.min((now - last) / 1000, 0.1);
+    const dt = firstFrame ? 0 : Math.min((now - last) / 1000, 0.1);
     last = now;
-    const elapsed = visibleAt === undefined ? 0 : (now - visibleAt) / 1000;
-    const pose = getSwivelPose(elapsed, startYaw, targets);
+    visibleElapsed += dt;
+    const pose = getSwivelPose(visibleElapsed, startYaw, targets);
 
     if (pose.phase !== 'typing' && !transitionStarted) {
       transitionStarted = true;
       idleAction.reset().setEffectiveWeight(1).play();
-      typingAction.crossFadeTo(idleAction, 0.6, true);
+      typingAction.crossFadeTo(idleAction, 0.6, false);
     }
 
     phase = pose.phase;
